@@ -165,6 +165,9 @@ func (t *SlowLogTxn) Then(ops ...clientv3.Op) clientv3.Txn {
 // Commit implements Txn Commit interface.
 func (t *SlowLogTxn) Commit() (*clientv3.TxnResponse, error) {
 	start := time.Now()
+	failpoint.Inject("etcdCommitSlow", func() {
+		time.Sleep(3 * time.Second)
+	})
 	resp, err := t.Txn.Commit()
 	t.cancel()
 

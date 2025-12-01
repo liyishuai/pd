@@ -882,6 +882,10 @@ func (suite *multipleServerTestSuite) TestReElectLeader() {
 	re.NotEqual(originLeaderName, newLeaderName)
 
 	suite.pdLeader = suite.cluster.GetServer(newLeaderName)
+	re.NoError(failpoint.Enable("github.com/tikv/pd/pkg/storage/kv/etcdCommitSlow", "return"))
+	defer func() {
+		re.NoError(failpoint.Disable("github.com/tikv/pd/pkg/storage/kv/etcdCommitSlow"))
+	}()
 	err = suite.pdLeader.ResignLeader()
 	re.NoError(err)
 	newLeaderName = suite.cluster.WaitLeader()
