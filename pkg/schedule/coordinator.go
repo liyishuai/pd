@@ -49,6 +49,7 @@ const (
 	// CollectTimeout is the timeout for collecting regions.
 	CollectTimeout       = 5 * time.Minute
 	maxLoadConfigRetries = 10
+	initSchedulerTimeout = 10 * time.Second
 	// pushOperatorTickInterval is the interval try to push the operator.
 	pushOperatorTickInterval = 500 * time.Millisecond
 
@@ -256,6 +257,7 @@ func (c *Coordinator) InitSchedulers(needRun bool) {
 		configs       []string
 		err           error
 	)
+	deadline := time.After(initSchedulerTimeout)
 	for i := range maxLoadConfigRetries {
 		scheduleNames, configs, err = c.cluster.GetStorage().LoadAllSchedulerConfigs()
 		select {
@@ -275,6 +277,15 @@ func (c *Coordinator) InitSchedulers(needRun bool) {
 	scheduleCfg := c.cluster.GetSchedulerConfig().GetScheduleConfig().Clone()
 	// The new way to create scheduler with the independent configuration.
 	for i, name := range scheduleNames {
+		select {
+		case <-c.ctx.Done():
+			log.Info("init schedulers has been stopped")
+			return
+		case <-deadline:
+			log.Warn("timeout creating schedulers")
+			return
+		default:
+		}
 		data := configs[i]
 		typ := schedulers.FindSchedulerTypeByName(name)
 		var cfg sc.SchedulerConfig
@@ -316,6 +327,15 @@ func (c *Coordinator) InitSchedulers(needRun bool) {
 	// The old way to create the scheduler.
 	k := 0
 	for _, schedulerCfg := range scheduleCfg.Schedulers {
+		select {
+		case <-c.ctx.Done():
+			log.Info("init schedulers has been stopped")
+			return
+		case <-deadline:
+			log.Warn("timeout creating schedulers (old-style)")
+			return
+		default:
+		}
 		if schedulerCfg.Disable {
 			scheduleCfg.Schedulers[k] = schedulerCfg
 			k++
