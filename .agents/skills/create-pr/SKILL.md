@@ -36,11 +36,11 @@ Collect all information needed to fill the PR template. Run these in parallel:
 Verify and fix commit requirements before pushing. These checks apply to all commits in the range `master..HEAD`:
 
 - ✅ **Signed-off-by line**: Every commit MUST have `Signed-off-by: Name <email>` matching the commit author (the human developer)
-  - Check: `git log master..HEAD --invert-grep --grep="Signed-off-by:" --pretty=oneline`
-  - Fix: Prompt user for confirmation, then run `git rebase --signoff master`
+  - Check: `git log master..HEAD --format="%H %s" | while read hash subject; do git log -1 $hash --format="%B" | grep -q "^Signed-off-by:" || echo "❌ Missing sign-off: $hash $subject"; done`
+  - Fix: Prompt user for confirmation, then run `git rebase --signoff master` (Note: This rewrites commit SHAs and will require a force-push).
   - **CRITICAL**: DCO requires human developer attestation; never use agent identity in Signed-off-by
 - ✅ **Subject line ≤70 chars**: PR title / final commit subject must be ≤70 characters
-- ✅ **Commit message format**: `pkg: message` or `pkg1, pkg2: message` or `*: message`
+- ✅ **Commit message format**: `pkg: message` or `pkg1, pkg2: message` or `*: message` (ensure space after comma)
 - ✅ **Body wrapped at 80 chars**: Commit message body lines must wrap at 80 characters
 - ✅ **Body describes why and how**: Not just "what changed" — explain the rationale
 
