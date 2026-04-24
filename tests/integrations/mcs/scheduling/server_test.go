@@ -395,6 +395,29 @@ func (suite *serverTestSuite) TestStoreHeartbeatForwardFailureWithNoSchedulingPr
 		return resp1Err == nil
 	})
 
+	// Snapshot the baseline counter value
+	getCounter := func() float64 {
+		mfs, gatherErr := prometheus.DefaultGatherer.Gather()
+		re.NoError(gatherErr)
+		for _, mf := range mfs {
+			if mf.GetName() == "pd_server_forward_fail_total" {
+				for _, m := range mf.GetMetric() {
+					lbls := m.GetLabel()
+					if len(lbls) >= 2 && lbls[0].GetValue() == "store_heartbeat" && lbls[1].GetValue() == "client" {
+						return m.GetCounter().GetValue()
+					}
+				}
+			}
+		}
+		return 0
+	}
+	baseline := getCounter()
+
+	// Ensure we restore the primary address so the empty primary doesn't leak
+	originalAddr, ok := suite.pdLeader.GetServicePrimaryAddr(suite.ctx, constant.SchedulingServiceName)
+	re.True(ok)
+	defer suite.pdLeader.GetServer().SetServicePrimaryAddr(constant.SchedulingServiceName, originalAddr)
+
 	// Simulate the bug condition: clear the scheduling primary address
 	// so GetServicePrimaryAddr returns "", mimicking a leader switch where
 	// the primary watcher hasn't caught up.
@@ -416,19 +439,7 @@ func (suite *serverTestSuite) TestStoreHeartbeatForwardFailureWithNoSchedulingPr
 	// with label (store_heartbeat, client) should be incremented.
 	// Before the fix, this counter doesn't exist and the failure is silent.
 	re.Eventually(func() bool {
-		mfs, gatherErr := prometheus.DefaultGatherer.Gather()
-		re.NoError(gatherErr)
-		for _, mf := range mfs {
-			if mf.GetName() == "pd_server_forward_fail_total" {
-				for _, m := range mf.GetMetric() {
-					lbls := m.GetLabel()
-					if len(lbls) >= 2 && lbls[0].GetValue() == "store_heartbeat" && lbls[1].GetValue() == "client" {
-						return m.GetCounter().GetValue() > 0
-					}
-				}
-			}
-		}
-		return false
+		return getCounter() > baseline
 	}, 10*time.Second, 100*time.Millisecond)
 }
 
