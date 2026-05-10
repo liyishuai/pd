@@ -400,13 +400,23 @@ func (s *StoreInfo) GetWitnessCount() int {
 	return s.witnessCount
 }
 
-// GetLeaderSize returns the leader size of the store.
+// GetLeaderSize returns the leader size (in KiB) of the store.
 func (s *StoreInfo) GetLeaderSize() int64 {
 	return int64(s.leaderSize)
 }
 
-// GetRegionSize returns the Region size of the store.
+// GetLeaderSizeKb returns the leader size (in KiB) of the store.
+func (s *StoreInfo) GetLeaderSizeKb() int64 {
+	return int64(s.leaderSize)
+}
+
+// GetRegionSize returns the Region size (in KiB) of the store.
 func (s *StoreInfo) GetRegionSize() int64 {
+	return int64(s.regionSize)
+}
+
+// GetRegionSizeKb returns the Region size (in KiB) of the store.
+func (s *StoreInfo) GetRegionSizeKb() int64 {
 	return int64(s.regionSize)
 }
 

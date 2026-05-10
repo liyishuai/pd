@@ -76,20 +76,20 @@ func (suite *operatorControllerTestSuite) TestCacheInfluence() {
 	re.True(op.Start())
 	influence := NewOpInfluence()
 	AddOpInfluence(op, influence, bc)
-	re.Equal(int64(-96), influence.GetStoreInfluence(2).RegionSize)
+	re.Equal(int64(-98304), influence.GetStoreInfluence(2).RegionSize)
 
 	// case: influence is same even if the region size changed.
 	region = region.Clone(core.SetApproximateSize(100))
 	tc.PutRegion(region)
 	influence1 := NewOpInfluence()
 	AddOpInfluence(op, influence1, bc)
-	re.Equal(int64(-96), influence1.GetStoreInfluence(2).RegionSize)
+	re.Equal(int64(-98304), influence1.GetStoreInfluence(2).RegionSize)
 
 	// case: influence is valid even if the region is removed.
 	tc.RemoveRegion(region)
 	influence2 := NewOpInfluence()
 	AddOpInfluence(op, influence2, bc)
-	re.Equal(int64(-96), influence2.GetStoreInfluence(2).RegionSize)
+	re.Equal(int64(-98304), influence2.GetStoreInfluence(2).RegionSize)
 }
 
 // issue #1338
@@ -769,18 +769,18 @@ func (suite *operatorControllerTestSuite) TestCalcInfluence() {
 
 	influence := controller.GetOpInfluence(cluster.GetBasicCluster())
 	check(influence, 1, &StoreInfluence{
-		LeaderSize:  -20,
+		LeaderSize:  -20480,
 		LeaderCount: -1,
-		RegionSize:  -20,
+		RegionSize:  -20480,
 		RegionCount: -1,
 		StepCost: map[storelimit.Type]int64{
 			storelimit.RemovePeer: 200,
 		},
 	})
 	check(influence, 3, &StoreInfluence{
-		LeaderSize:  20,
+		LeaderSize:  20480,
 		LeaderCount: 1,
-		RegionSize:  20,
+		RegionSize:  20480,
 		RegionCount: 1,
 		StepCost: map[storelimit.Type]int64{
 			storelimit.AddPeer: 200,
@@ -796,16 +796,16 @@ func (suite *operatorControllerTestSuite) TestCalcInfluence() {
 
 	influence = controller.GetOpInfluence(cluster.GetBasicCluster())
 	check(influence, 1, &StoreInfluence{
-		LeaderSize:  -20,
+		LeaderSize:  -20480,
 		LeaderCount: -1,
-		RegionSize:  -20,
+		RegionSize:  -20480,
 		RegionCount: -1,
 		StepCost: map[storelimit.Type]int64{
 			storelimit.RemovePeer: 200,
 		},
 	})
 	check(influence, 3, &StoreInfluence{
-		LeaderSize:  20,
+		LeaderSize:  20480,
 		LeaderCount: 1,
 		RegionSize:  0,
 		RegionCount: 0,
@@ -965,7 +965,7 @@ func (suite *operatorControllerTestSuite) TestAddWaitingOperator() {
 	addPeerOp := func(i uint64) *Operator {
 		start := fmt.Sprintf("%da", i)
 		end := fmt.Sprintf("%db", i)
-		region := suite.newRegionInfo(i, start, end, 1, 1, []uint64{101, 1}, []uint64{101, 1})
+		region := suite.newRegionInfo(i, start, end, 0, 1, []uint64{101, 1}, []uint64{101, 1})
 		cluster.PutRegion(region)
 		peer := &metapb.Peer{
 			StoreId: 2,

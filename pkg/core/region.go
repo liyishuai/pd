@@ -188,8 +188,8 @@ func (r *RegionInfo) rangeEqualsTo(region *RegionInfo) bool {
 
 const (
 	// EmptyRegionApproximateSize is the region approximate size of an empty region
-	// (heartbeat size <= 1MiB).
-	EmptyRegionApproximateSize = SizeKiB(units.MiB / units.KiB)
+	// (heartbeat size <= 1KiB).
+	EmptyRegionApproximateSize = SizeKiB(1)
 	// ImpossibleFlowSize is an impossible flow size (such as written_bytes, read_keys, etc.)
 	// It may be caused by overflow, refer to https://github.com/tikv/pd/issues/3379.
 	// They need to be filtered so as not to affect downstream.
@@ -222,18 +222,20 @@ type RegionHeartbeatRequest interface {
 	GetInterval() *pdpb.TimeInterval
 	GetQueryStats() *pdpb.QueryStats
 	GetApproximateSize() uint64
+	GetApproximateSizeKb() uint64
 	GetApproximateKeys() uint64
 	GetBucketMeta() *metapb.BucketMeta
 }
 
 // RegionFromHeartbeat constructs a Region from region heartbeat.
 func RegionFromHeartbeat(heartbeat RegionHeartbeatRequest, flowRoundDivisor uint64) *RegionInfo {
-	// Convert unit to KiB.
-	// If region isn't empty and less than 1MiB, use 1MiB instead.
-	// The size and keys of empty region will be corrected by the previous RegionInfo.
-	regionSize := BytesToKiB(heartbeat.GetApproximateSize())
-	if heartbeat.GetApproximateSize() > 0 && regionSize < EmptyRegionApproximateSize {
-		regionSize = EmptyRegionApproximateSize
+	// Prefer the KB-level size from the heartbeat when provided.
+	// Fall back to converting the byte-level size for backward compatibility.
+	var regionSize SizeKiB
+	if kb := heartbeat.GetApproximateSizeKb(); kb > 0 {
+		regionSize = SizeKiB(kb)
+	} else {
+		regionSize = BytesToKiB(heartbeat.GetApproximateSize())
 	}
 
 	region := &RegionInfo{
@@ -296,7 +298,7 @@ func (r *RegionInfo) Inherit(origin *RegionInfo, bucketEnable bool) {
 	// - size=1, keys=0: Truly empty region
 	// - size>1, keys>0: Region has data
 	// Ref: https://github.com/tikv/tikv/pull/19181
-	if r.GetApproximateSize() == 0 {
+	if r.approximateSize == 0 && r.approximateKeys == 0 {
 		if origin != nil {
 			r.approximateSize = origin.approximateSize
 			r.approximateKeys = origin.approximateKeys
@@ -698,9 +700,19 @@ func (r *RegionInfo) GetStorePeerApproximateSize(storeID uint64) SizeKiB {
 	return r.approximateSize
 }
 
+// GetStorePeerApproximateSizeKb returns the approximate size (in KiB) of the peer on the specified store.
+func (r *RegionInfo) GetStorePeerApproximateSizeKb(storeID uint64) int64 {
+	return int64(r.GetStorePeerApproximateSize(storeID))
+}
+
 // GetApproximateSize returns the approximate size of the region.
 func (r *RegionInfo) GetApproximateSize() SizeKiB {
 	return r.approximateSize
+}
+
+// GetApproximateSizeKb returns the approximate size (in KiB) of the region.
+func (r *RegionInfo) GetApproximateSizeKb() int64 {
+	return int64(r.approximateSize)
 }
 
 // GetStorePeerApproximateKeys returns the approximate keys of the peer on the specified store.

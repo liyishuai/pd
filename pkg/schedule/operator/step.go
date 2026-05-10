@@ -117,9 +117,9 @@ func (tl TransferLeader) Influence(opInfluence *OpInfluence, region *core.Region
 	from := opInfluence.GetStoreInfluence(tl.FromStore)
 	to := opInfluence.GetStoreInfluence(tl.ToStore)
 
-	from.LeaderSize -= region.GetApproximateSize()
+	from.LeaderSize -= region.GetApproximateSizeKb()
 	from.LeaderCount--
-	to.LeaderSize += region.GetApproximateSize()
+	to.LeaderSize += region.GetApproximateSizeKb()
 	to.LeaderCount++
 }
 
@@ -182,7 +182,7 @@ func (ap AddPeer) IsFinish(region *core.RegionInfo) bool {
 func (ap AddPeer) Influence(opInfluence *OpInfluence, region *core.RegionInfo) {
 	to := opInfluence.GetStoreInfluence(ap.ToStore)
 
-	regionSize := region.GetApproximateSize()
+	regionSize := region.GetApproximateSizeKb()
 	if ap.IsWitness {
 		to.WitnessCount += 1
 	} else {
@@ -265,7 +265,7 @@ func (bw BecomeWitness) CheckInProgress(ci *core.BasicCluster, config config.Sha
 func (bw BecomeWitness) Influence(opInfluence *OpInfluence, region *core.RegionInfo) {
 	to := opInfluence.GetStoreInfluence(bw.StoreID)
 
-	regionSize := region.GetApproximateSize()
+	regionSize := region.GetApproximateSizeKb()
 	to.WitnessCount += 1
 	to.RegionSize -= regionSize
 	to.AdjustStepCost(storelimit.RemovePeer, regionSize)
@@ -327,7 +327,7 @@ func (bn BecomeNonWitness) CheckInProgress(ci *core.BasicCluster, config config.
 func (bn BecomeNonWitness) Influence(opInfluence *OpInfluence, region *core.RegionInfo) {
 	to := opInfluence.GetStoreInfluence(bn.StoreID)
 
-	regionSize := region.GetApproximateSize()
+	regionSize := region.GetApproximateSizeKb()
 	to.WitnessCount -= 1
 	to.RegionSize += regionSize
 	to.AdjustStepCost(storelimit.AddPeer, regionSize)
@@ -336,7 +336,7 @@ func (bn BecomeNonWitness) Influence(opInfluence *OpInfluence, region *core.Regi
 		return
 	}
 	send := opInfluence.GetStoreInfluence(bn.SendStore)
-	send.AddStepCost(storelimit.SendSnapshot, int64(regionSize))
+	send.AddStepCost(storelimit.SendSnapshot, regionSize)
 }
 
 // Timeout returns duration that current step may take.
@@ -501,7 +501,7 @@ func (al AddLearner) CheckInProgress(ci *core.BasicCluster, config config.Shared
 // Influence calculates the store difference that current step makes.
 func (al AddLearner) Influence(opInfluence *OpInfluence, region *core.RegionInfo) {
 	to := opInfluence.GetStoreInfluence(al.ToStore)
-	regionSize := region.GetApproximateSize()
+	regionSize := region.GetApproximateSizeKb()
 	if al.IsWitness {
 		to.WitnessCount += 1
 	} else {
@@ -516,7 +516,7 @@ func (al AddLearner) Influence(opInfluence *OpInfluence, region *core.RegionInfo
 		return
 	}
 	send := opInfluence.GetStoreInfluence(al.SendStore)
-	send.AddStepCost(storelimit.SendSnapshot, int64(regionSize))
+	send.AddStepCost(storelimit.SendSnapshot, regionSize)
 }
 
 // Timeout returns duration that current step may take.
@@ -630,7 +630,7 @@ func (rp RemovePeer) CheckInProgress(_ *core.BasicCluster, _ config.SharedConfig
 func (rp RemovePeer) Influence(opInfluence *OpInfluence, region *core.RegionInfo) {
 	from := opInfluence.GetStoreInfluence(rp.FromStore)
 
-	regionSize := region.GetStorePeerApproximateSize(rp.FromStore)
+	regionSize := region.GetStorePeerApproximateSizeKb(rp.FromStore)
 	from.RegionSize -= regionSize
 	from.RegionCount--
 	peer := region.GetStorePeer(rp.FromStore)
@@ -643,8 +643,8 @@ func (rp RemovePeer) Influence(opInfluence *OpInfluence, region *core.RegionInfo
 		return
 	}
 
-	if rp.IsDownStore && int64(regionSize) > storelimit.SmallRegionThreshold {
-		regionSize = core.SizeKiB(storelimit.SmallRegionThreshold)
+	if rp.IsDownStore && regionSize > storelimit.SmallRegionThreshold {
+		regionSize = storelimit.SmallRegionThreshold
 	}
 	from.AdjustStepCost(storelimit.RemovePeer, regionSize)
 }
@@ -1104,8 +1104,8 @@ func validateStore(ci *core.BasicCluster, config config.SharedConfigProvider, id
 	return nil
 }
 
-func slowStepWaitDuration(regionSize int64) time.Duration {
-	seconds := DefaultSlowExecutorRate * regionSize
+func slowStepWaitDuration(regionSizeKb int64) time.Duration {
+	seconds := DefaultSlowExecutorRate * regionSizeKb / 1024
 	wait := time.Duration(seconds) * time.Second
 	if wait < SlowStepWaitTime {
 		wait = SlowStepWaitTime
@@ -1113,8 +1113,8 @@ func slowStepWaitDuration(regionSize int64) time.Duration {
 	return wait
 }
 
-func fastStepWaitDuration(regionSize int64) time.Duration {
-	seconds := int64(DefaultFastExecutorRate * float64(regionSize))
+func fastStepWaitDuration(regionSizeKb int64) time.Duration {
+	seconds := int64(DefaultFastExecutorRate * float64(regionSizeKb) / 1024)
 	wait := time.Duration(seconds) * time.Second
 	if wait < FastStepWaitTime {
 		wait = FastStepWaitTime

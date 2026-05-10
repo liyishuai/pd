@@ -198,7 +198,7 @@ func TestSortedEqual(t *testing.T) {
 
 func TestInherit(t *testing.T) {
 	re := require.New(t)
-	// size in MB
+	// size in KiB
 	// case for approximateSize
 	testCases := []struct {
 		originExists bool
@@ -206,7 +206,7 @@ func TestInherit(t *testing.T) {
 		size         uint64
 		expect       uint64
 	}{
-		{false, 0, 0, 1},
+		{false, 0, 0, 1}, // no origin, size=0, keys=0 -> set to EmptyRegionApproximateSize (1 KiB)
 		{false, 0, 2, 2},
 		{true, 0, 2, 2},
 		{true, 1, 2, 2},
@@ -221,9 +221,12 @@ func TestInherit(t *testing.T) {
 		}
 		r := NewRegionInfo(&metapb.Region{Id: 100}, nil)
 		r.approximateSize = SizeKiB(testCase.size)
-		r.approximateKeys = 1
+		r.approximateKeys = 0
 		r.Inherit(origin, false)
-		re.Equal(int64(testCase.expect), r.approximateSize)
+		re.Equal(SizeKiB(testCase.expect), r.approximateSize)
+		if testCase.size == 0 && !testCase.originExists {
+			re.Equal(int64(EmptyRegionApproximateSize), r.GetApproximateSizeKb())
+		}
 	}
 
 	// case for approximateKeys
@@ -236,7 +239,7 @@ func TestInherit(t *testing.T) {
 		keys         int64
 		expectKeys   int64
 	}{
-		{false, 0, 0, 0, 0, 0},     // no origin, size=0, keys=0 -> keys remain 0 (size set to 1 only)
+		{false, 0, 0, 0, 0, 0},     // no origin, size=0, keys=0 -> size set to EmptyRegionApproximateSize, keys remain 0
 		{false, 0, 0, 1, 0, 0},     // no origin, size=1, keys=0 -> keys remain 0 (no inheritance)
 		{false, 0, 0, 1, 100, 100}, // no origin, size=1, keys=100 -> keys remain 100
 		{true, 1, 50, 1, 100, 100}, // origin exists, size=1, keys=100 -> keys remain 100
@@ -610,7 +613,7 @@ func TestSetRegion(t *testing.T) {
 	re.Equal(96, regions.tree.length())
 	re.Len(regions.GetRegions(), 96)
 	re.NotNil(regions.GetRegion(201))
-	re.Equal(int64(30), regions.tree.TotalSize())
+	re.Equal(int64(30*1024), regions.tree.TotalSize())
 	bytesRate, keysRate := regions.tree.TotalWriteRate()
 	re.Equal(float64(8), bytesRate)
 	re.Equal(float64(2), keysRate)
@@ -812,12 +815,12 @@ func TestGetRegionSizeByRange(t *testing.T) {
 		regions.UpdateSubTree(region, origin, overlaps, rangeChanged)
 	}
 	totalSize := regions.GetRegionSizeByRange([]byte(""), []byte(""))
-	require.Equal(t, int64(nums*10), totalSize)
+	require.Equal(t, int64(nums*10*1024), totalSize)
 	for i := 1; i < 10; i++ {
 		verifyNum := nums / i
 		endKey := fmt.Sprintf("%20d", verifyNum)
 		totalSize := regions.GetRegionSizeByRange([]byte(""), []byte(endKey))
-		require.Equal(t, int64(verifyNum*10), totalSize)
+		require.Equal(t, int64(verifyNum*10*1024), totalSize)
 	}
 }
 

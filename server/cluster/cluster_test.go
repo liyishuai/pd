@@ -634,8 +634,8 @@ func TestRemovingProcess(t *testing.T) {
 	// process = 5 / 20 = 0.25
 	re.Equal(0.25, p.ProgressPercent)
 	// Each region is 100MB, we use more than 1s to move 5 region.
-	// speed = 5 * 100MB / 10s = 50MB/s
-	re.Equal(50.0, p.CurrentSpeed)
+	// speed = 5 * 100 * 1024 KiB / 10s = 51200 KiB/s
+	re.Equal(51200.0, p.CurrentSpeed)
 	// left second = 15 * 100 / 50 = 60s
 	re.Equal(30.0, p.LeftSecond)
 }
@@ -1876,13 +1876,13 @@ func TestCalculateStoreSize1(t *testing.T) {
 	stores := cluster.GetStores()
 	store := cluster.GetStore(1)
 	kr := keyutil.NewKeyRange("", "")
-	// 100 * 100 * 2 (placement rule) / 4 (host) * 0.9 = 4500
-	re.Equal(4500.0, cluster.getThreshold(stores, store, &kr))
+	// 100 * 100 * 1024 * 2 (placement rule) / 4 (host) * 0.9 = 4608000
+	re.Equal(4608000.0, cluster.getThreshold(stores, store, &kr))
 
 	cluster.opt.SetPlacementRuleEnabled(false)
 	cluster.opt.SetLocationLabels([]string{"zone", "rack", "host"})
-	// 30000 (total region size) / 3 (zone) / 4 (host) * 0.9 = 2250
-	re.Equal(2250.0, cluster.getThreshold(stores, store, &kr))
+	// 100 * 100 * 1024 * 3 (MaxReplicas) / 3 (zone) / 4 (host) * 0.9 = 2304000
+	re.Equal(2304000.0, cluster.getThreshold(stores, store, &kr))
 }
 
 func TestStatsRegions(t *testing.T) {
@@ -1991,8 +1991,8 @@ func TestCalculateStoreSize2(t *testing.T) {
 	stores := cluster.GetStores()
 	store := cluster.GetStore(1)
 	kr := keyutil.NewKeyRange("", "")
-	// 100 * 100 * 4 (total region size) / 2 (dc) / 2 (logic) / 3 (host) * 0.9 = 3000
-	re.Equal(3000.0, cluster.getThreshold(stores, store, &kr))
+	// 100 * 100 * 1024 * 4 (total region size) / 2 (dc) / 2 (logic) / 3 (host) * 0.9 = 3072000
+	re.Equal(3072000.0, cluster.getThreshold(stores, store, &kr))
 }
 
 func TestStores(t *testing.T) {
@@ -2416,7 +2416,11 @@ func newTestRegionMeta(regionID uint64) *metapb.Region {
 }
 
 func checkRegion(re *require.Assertions, a *core.RegionInfo, b *core.RegionInfo) {
-	re.Equal(b, a)
+	if a != nil && b != nil {
+		re.Equal(b.Clone(), a.Clone())
+	} else {
+		re.Equal(b, a)
+	}
 	re.Equal(b.GetMeta(), a.GetMeta())
 	re.Equal(b.GetLeader(), a.GetLeader())
 	re.Equal(b.GetPeers(), a.GetPeers())
@@ -2524,7 +2528,7 @@ func (c *testCluster) addRegionStore(storeID uint64, regionCount int, regionSize
 	newStore := core.NewStoreInfo(&metapb.Store{Id: storeID},
 		core.SetStoreStats(stats),
 		core.SetRegionCount(regionCount),
-		core.SetRegionSize(int64(regionSize)),
+		core.SetRegionSize(int64(regionSize)*1024),
 		core.SetLastHeartbeatTS(time.Now()),
 	)
 
@@ -2563,7 +2567,7 @@ func (c *testCluster) updateLeaderCount(storeID uint64, leaderCount int) error {
 	store := c.GetStore(storeID)
 	newStore := store.Clone(
 		core.SetLeaderCount(leaderCount),
-		core.SetLeaderSize(int64(leaderCount)*10),
+		core.SetLeaderSize(int64(leaderCount)*10*1024),
 	)
 	c.Lock()
 	defer c.Unlock()
