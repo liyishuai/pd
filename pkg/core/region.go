@@ -81,7 +81,7 @@ type RegionInfo struct {
 	writtenKeys               uint64
 	readBytes                 uint64
 	readKeys                  uint64
-	approximateSize           int64
+	approximateSize           SizeKiB
 	approximateKvSize         int64 // Unit: MiB
 	approximateColumnarKvSize int64 // Unit: MiB
 	approximateKeys           int64
@@ -188,8 +188,8 @@ func (r *RegionInfo) rangeEqualsTo(region *RegionInfo) bool {
 
 const (
 	// EmptyRegionApproximateSize is the region approximate size of an empty region
-	// (heartbeat size <= 1MB).
-	EmptyRegionApproximateSize = 1
+	// (heartbeat size <= 1MiB).
+	EmptyRegionApproximateSize = SizeKiB(units.MiB / units.KiB)
 	// ImpossibleFlowSize is an impossible flow size (such as written_bytes, read_keys, etc.)
 	// It may be caused by overflow, refer to https://github.com/tikv/pd/issues/3379.
 	// They need to be filtered so as not to affect downstream.
@@ -228,10 +228,10 @@ type RegionHeartbeatRequest interface {
 
 // RegionFromHeartbeat constructs a Region from region heartbeat.
 func RegionFromHeartbeat(heartbeat RegionHeartbeatRequest, flowRoundDivisor uint64) *RegionInfo {
-	// Convert unit to MB.
-	// If region isn't empty and less than 1MB, use 1MB instead.
+	// Convert unit to KiB.
+	// If region isn't empty and less than 1MiB, use 1MiB instead.
 	// The size and keys of empty region will be corrected by the previous RegionInfo.
-	regionSize := heartbeat.GetApproximateSize() / units.MiB
+	regionSize := BytesToKiB(heartbeat.GetApproximateSize())
 	if heartbeat.GetApproximateSize() > 0 && regionSize < EmptyRegionApproximateSize {
 		regionSize = EmptyRegionApproximateSize
 	}
@@ -246,7 +246,7 @@ func RegionFromHeartbeat(heartbeat RegionHeartbeatRequest, flowRoundDivisor uint
 		writtenKeys:      heartbeat.GetKeysWritten(),
 		readBytes:        heartbeat.GetBytesRead(),
 		readKeys:         heartbeat.GetKeysRead(),
-		approximateSize:  int64(regionSize),
+		approximateSize:  regionSize,
 		approximateKeys:  int64(heartbeat.GetApproximateKeys()),
 		interval:         heartbeat.GetInterval(),
 		queryStats:       heartbeat.GetQueryStats(),
@@ -353,12 +353,12 @@ func (r *RegionInfo) Clone(opts ...RegionCreateOption) *RegionInfo {
 
 // NeedMerge returns true if size is less than merge size and keys is less than mergeKeys.
 func (r *RegionInfo) NeedMerge(mergeSize int64, mergeKeys int64) bool {
-	return r.GetApproximateSize() <= mergeSize && r.GetApproximateKeys() <= mergeKeys
+	return r.GetApproximateSize() <= MiBToKiB(mergeSize) && r.GetApproximateKeys() <= mergeKeys
 }
 
 // IsOversized indicates whether the region is oversized.
 func (r *RegionInfo) IsOversized(maxSize int64, maxKeys int64) bool {
-	return r.GetApproximateSize() >= maxSize || r.GetApproximateKeys() >= maxKeys
+	return r.GetApproximateSize() >= MiBToKiB(maxSize) || r.GetApproximateKeys() >= maxKeys
 }
 
 // GetTerm returns the current term of the region
@@ -690,7 +690,7 @@ func (r *RegionInfo) GetBuckets() *metapb.Buckets {
 }
 
 // GetStorePeerApproximateSize returns the approximate size of the peer on the specified store.
-func (r *RegionInfo) GetStorePeerApproximateSize(storeID uint64) int64 {
+func (r *RegionInfo) GetStorePeerApproximateSize(storeID uint64) SizeKiB {
 	peer := r.GetStorePeer(storeID)
 	if storeID != 0 && peer != nil && peer.IsWitness {
 		return 0
@@ -699,7 +699,7 @@ func (r *RegionInfo) GetStorePeerApproximateSize(storeID uint64) int64 {
 }
 
 // GetApproximateSize returns the approximate size of the region.
-func (r *RegionInfo) GetApproximateSize() int64 {
+func (r *RegionInfo) GetApproximateSize() SizeKiB {
 	return r.approximateSize
 }
 
@@ -2226,9 +2226,9 @@ func (r *RegionsInfo) GetRegionSizeByRange(startKey, endKey []byte) int64 {
 	if len(startKey) == 0 && len(endKey) == 0 {
 		r.t.RLock()
 		defer r.t.RUnlock()
-		return r.tree.totalSize
+		return int64(r.tree.totalSize)
 	}
-	var size int64
+	var size SizeKiB
 	for {
 		r.t.RLock()
 		var cnt int
@@ -2253,7 +2253,7 @@ func (r *RegionsInfo) GetRegionSizeByRange(startKey, endKey []byte) int64 {
 		}
 	}
 
-	return size
+	return int64(size)
 }
 
 // metrics default poll interval

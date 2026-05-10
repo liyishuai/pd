@@ -72,8 +72,8 @@ type StoreInfo struct {
 	regionCount            int
 	learnerCount           int
 	witnessCount           int
-	leaderSize             int64
-	regionSize             int64
+	leaderSize             SizeKiB
+	regionSize             SizeKiB
 	pendingPeerCount       int
 	lastPersistTime        time.Time
 	leaderWeight           float64
@@ -402,12 +402,12 @@ func (s *StoreInfo) GetWitnessCount() int {
 
 // GetLeaderSize returns the leader size of the store.
 func (s *StoreInfo) GetLeaderSize() int64 {
-	return s.leaderSize
+	return int64(s.leaderSize)
 }
 
 // GetRegionSize returns the Region size of the store.
 func (s *StoreInfo) GetRegionSize() int64 {
-	return s.regionSize
+	return int64(s.regionSize)
 }
 
 // GetPendingPeerCount returns the pending peer count of the store.

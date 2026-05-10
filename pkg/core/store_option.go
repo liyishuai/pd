@@ -217,14 +217,14 @@ func SetPendingPeerCount(pendingPeerCount int) StoreCreateOption {
 // SetLeaderSize sets the leader size for the store.
 func SetLeaderSize(leaderSize int64) StoreCreateOption {
 	return func(store *StoreInfo) {
-		store.leaderSize = leaderSize
+		store.leaderSize = SizeKiB(leaderSize)
 	}
 }
 
 // SetRegionSize sets the Region size for the store.
 func SetRegionSize(regionSize int64) StoreCreateOption {
 	return func(store *StoreInfo) {
-		store.regionSize = regionSize
+		store.regionSize = SizeKiB(regionSize)
 	}
 }
 

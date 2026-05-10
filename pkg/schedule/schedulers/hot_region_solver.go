@@ -877,7 +877,7 @@ func (bs *balanceSolver) buildOperators() (ops []*operator.Operator) {
 			if region == nil {
 				continue
 			}
-			if region.GetApproximateSize() > bs.GetSchedulerConfig().GetMaxMovableHotPeerSize() {
+			if region.GetApproximateSize() > core.MiBToKiB(bs.GetSchedulerConfig().GetMaxMovableHotPeerSize()) {
 				hotSchedulerNeedSplitBeforeScheduleCounter.Inc()
 				splitRegions = append(splitRegions, region)
 			}

@@ -56,7 +56,7 @@ func (m *Manager) AllowSplit(region *core.RegionInfo, reason pdpb.SplitReason) b
 		maxKeys := maxSize * config.RegionSizeToKeysRatio
 		// Only block splitting when the Region is in the affinity state.
 		// But still allow splitting if the Region size is too big.
-		if region.GetApproximateSize() < maxSize && region.GetApproximateKeys() < maxKeys {
+		if region.GetApproximateSize() < core.MiBToKiB(maxSize) && region.GetApproximateKeys() < maxKeys {
 			regionSplitDenyCount.Inc()
 			return false
 		}

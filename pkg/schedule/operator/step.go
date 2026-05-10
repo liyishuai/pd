@@ -336,7 +336,7 @@ func (bn BecomeNonWitness) Influence(opInfluence *OpInfluence, region *core.Regi
 		return
 	}
 	send := opInfluence.GetStoreInfluence(bn.SendStore)
-	send.AddStepCost(storelimit.SendSnapshot, regionSize)
+	send.AddStepCost(storelimit.SendSnapshot, int64(regionSize))
 }
 
 // Timeout returns duration that current step may take.
@@ -516,7 +516,7 @@ func (al AddLearner) Influence(opInfluence *OpInfluence, region *core.RegionInfo
 		return
 	}
 	send := opInfluence.GetStoreInfluence(al.SendStore)
-	send.AddStepCost(storelimit.SendSnapshot, regionSize)
+	send.AddStepCost(storelimit.SendSnapshot, int64(regionSize))
 }
 
 // Timeout returns duration that current step may take.
@@ -643,8 +643,8 @@ func (rp RemovePeer) Influence(opInfluence *OpInfluence, region *core.RegionInfo
 		return
 	}
 
-	if rp.IsDownStore && regionSize > storelimit.SmallRegionThreshold {
-		regionSize = storelimit.SmallRegionThreshold
+	if rp.IsDownStore && int64(regionSize) > storelimit.SmallRegionThreshold {
+		regionSize = core.SizeKiB(storelimit.SmallRegionThreshold)
 	}
 	from.AdjustStepCost(storelimit.RemovePeer, regionSize)
 }

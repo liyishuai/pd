@@ -67,7 +67,7 @@ func TestNeedMerge(t *testing.T) {
 	}}
 	for _, v := range testdata {
 		r := RegionInfo{
-			approximateSize: v.size,
+			approximateSize: SizeKiB(v.size),
 			approximateKeys: v.keys,
 		}
 		re.Equal(v.expect, r.NeedMerge(mererSize, mergeKeys))
@@ -216,11 +216,11 @@ func TestInherit(t *testing.T) {
 		var origin *RegionInfo
 		if testCase.originExists {
 			origin = NewRegionInfo(&metapb.Region{Id: 100}, nil)
-			origin.approximateSize = int64(testCase.originSize)
+			origin.approximateSize = SizeKiB(testCase.originSize)
 			origin.approximateKeys = 1
 		}
 		r := NewRegionInfo(&metapb.Region{Id: 100}, nil)
-		r.approximateSize = int64(testCase.size)
+		r.approximateSize = SizeKiB(testCase.size)
 		r.approximateKeys = 1
 		r.Inherit(origin, false)
 		re.Equal(int64(testCase.expect), r.approximateSize)
@@ -247,11 +247,11 @@ func TestInherit(t *testing.T) {
 		var origin *RegionInfo
 		if testCase.originExists {
 			origin = NewRegionInfo(&metapb.Region{Id: 100}, nil)
-			origin.approximateSize = testCase.originSize
+			origin.approximateSize = SizeKiB(testCase.originSize)
 			origin.approximateKeys = testCase.originKeys
 		}
 		r := NewRegionInfo(&metapb.Region{Id: 100}, nil)
-		r.approximateSize = testCase.size
+		r.approximateSize = SizeKiB(testCase.size)
 		r.approximateKeys = testCase.keys
 		r.Inherit(origin, false)
 		re.Equal(testCase.expectKeys, r.approximateKeys)
@@ -459,7 +459,7 @@ func regionInfo(id uint64) *RegionInfo {
 		meta: &metapb.Region{
 			Id: id,
 		},
-		approximateSize: int64(id),
+		approximateSize: SizeKiB(id),
 		approximateKeys: int64(id),
 	}
 }
@@ -787,7 +787,7 @@ func BenchmarkRandomSetRegion(b *testing.B) {
 	for i := range b.N {
 		item := items[i%len(items)]
 		item.approximateKeys = int64(200000)
-		item.approximateSize = int64(20)
+		item.approximateSize = SizeKiB(20)
 		origin, overlaps, rangeChanged := regions.SetRegion(item)
 		regions.UpdateSubTree(item, origin, overlaps, rangeChanged)
 	}

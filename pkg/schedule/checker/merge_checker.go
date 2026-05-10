@@ -158,11 +158,11 @@ func (c *MergeChecker) Check(region *core.RegionInfo) []*operator.Operator {
 	if maxTargetRegionSizeThreshold < maxTargetRegionSize {
 		maxTargetRegionSizeThreshold = maxTargetRegionSize
 	}
-	if target.GetApproximateSize() > maxTargetRegionSizeThreshold {
+	if target.GetApproximateSize() > core.MiBToKiB(maxTargetRegionSizeThreshold) {
 		mergeCheckerTargetTooLargeCounter.Inc()
 		return nil
 	}
-	if err := c.cluster.GetStoreConfig().CheckRegionSize(uint64(target.GetApproximateSize()+region.GetApproximateSize()),
+	if err := c.cluster.GetStoreConfig().CheckRegionSize(uint64(target.GetApproximateSize().ToMiB()+region.GetApproximateSize().ToMiB()),
 		c.conf.GetMaxMergeRegionSize()); err != nil {
 		mergeCheckerSplitSizeAfterMergeCounter.Inc()
 		return nil

@@ -335,7 +335,7 @@ func (mc *Cluster) AddLeaderStore(storeID uint64, leaderCount int, leaderSizes .
 func (mc *Cluster) AddRegionStore(storeID uint64, regionCount int, regionSizes ...uint64) {
 	var regionSize uint64
 	if len(regionSizes) == 0 {
-		regionSize = uint64(int64(regionCount) * defaultRegionSize / units.MiB)
+		regionSize = uint64(int64(regionCount) * defaultRegionSize / units.KiB)
 	} else {
 		regionSize = regionSizes[0]
 	}
@@ -407,7 +407,7 @@ func (mc *Cluster) AddLabelsStore(storeID uint64, regionCount int, labels map[st
 		},
 		core.SetStoreStats(stats),
 		core.SetRegionCount(regionCount),
-		core.SetRegionSize(int64(regionCount)*defaultRegionSize/units.MiB),
+		core.SetRegionSize(int64(regionCount)*defaultRegionSize/units.KiB),
 		core.SetLastHeartbeatTS(time.Now()),
 	)
 	mc.SetStoreLimit(storeID, storelimit.AddPeer, 60)
@@ -628,7 +628,7 @@ func (mc *Cluster) UpdateLeaderCount(storeID uint64, leaderCount int) {
 	store := mc.GetStore(storeID)
 	newStore := store.Clone(
 		core.SetLeaderCount(leaderCount),
-		core.SetLeaderSize(int64(leaderCount)*defaultRegionSize/units.MiB),
+		core.SetLeaderSize(int64(leaderCount)*defaultRegionSize/units.KiB),
 	)
 	mc.PutStore(newStore)
 }
@@ -638,7 +638,7 @@ func (mc *Cluster) UpdateRegionCount(storeID uint64, regionCount int) {
 	store := mc.GetStore(storeID)
 	newStore := store.Clone(
 		core.SetRegionCount(regionCount),
-		core.SetRegionSize(int64(regionCount)*defaultRegionSize/units.MiB),
+		core.SetRegionSize(int64(regionCount)*defaultRegionSize/units.KiB),
 	)
 	mc.PutStore(newStore)
 }
@@ -764,8 +764,8 @@ func (mc *Cluster) UpdateStoreStatus(id uint64) {
 	store := mc.GetStore(id)
 	stats := &pdpb.StoreStats{}
 	stats.Capacity = defaultStoreCapacity
-	stats.Available = stats.Capacity - uint64(store.GetRegionSize()*units.MiB)
-	stats.UsedSize = uint64(store.GetRegionSize() * units.MiB)
+	stats.Available = stats.Capacity - uint64(store.GetRegionSize()*units.KiB)
+	stats.UsedSize = uint64(store.GetRegionSize() * units.KiB)
 	newStore := store.Clone(
 		core.SetStoreStats(stats),
 		core.SetLeaderCount(leaderCount),

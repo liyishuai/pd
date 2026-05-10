@@ -118,24 +118,24 @@ func TestRegionItem(t *testing.T) {
 
 func newRegionWithStat(start, end string, size, keys int64) *RegionInfo {
 	region := NewTestRegionInfo(1, 1, []byte(start), []byte(end))
-	region.approximateSize, region.approximateKeys = size, keys
+	region.approximateSize, region.approximateKeys = SizeKiB(size), keys
 	return region
 }
 
 func TestRegionTreeStat(t *testing.T) {
 	re := require.New(t)
 	tree := newRegionTree()
-	re.Equal(int64(0), tree.totalSize)
+	re.Equal(SizeKiB(0), tree.totalSize)
 	updateNewItem(tree, newRegionWithStat("a", "b", 1, 2))
-	re.Equal(int64(1), tree.totalSize)
+	re.Equal(SizeKiB(1), tree.totalSize)
 	updateNewItem(tree, newRegionWithStat("b", "c", 3, 4))
-	re.Equal(int64(4), tree.totalSize)
+	re.Equal(SizeKiB(4), tree.totalSize)
 	updateNewItem(tree, newRegionWithStat("b", "e", 5, 6))
-	re.Equal(int64(6), tree.totalSize)
+	re.Equal(SizeKiB(6), tree.totalSize)
 	tree.remove(newRegionWithStat("a", "b", 2, 2))
-	re.Equal(int64(5), tree.totalSize)
+	re.Equal(SizeKiB(5), tree.totalSize)
 	tree.remove(newRegionWithStat("f", "g", 1, 2))
-	re.Equal(int64(5), tree.totalSize)
+	re.Equal(SizeKiB(5), tree.totalSize)
 }
 
 func TestRegionTreeMerge(t *testing.T) {
@@ -143,9 +143,9 @@ func TestRegionTreeMerge(t *testing.T) {
 	tree := newRegionTree()
 	updateNewItem(tree, newRegionWithStat("a", "b", 1, 2))
 	updateNewItem(tree, newRegionWithStat("b", "c", 3, 4))
-	re.Equal(int64(4), tree.totalSize)
+	re.Equal(SizeKiB(4), tree.totalSize)
 	updateNewItem(tree, newRegionWithStat("a", "c", 5, 5))
-	re.Equal(int64(5), tree.totalSize)
+	re.Equal(SizeKiB(5), tree.totalSize)
 }
 
 func TestRegionTree(t *testing.T) {

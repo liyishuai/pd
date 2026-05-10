@@ -297,7 +297,7 @@ func AddQueryStats(v *pdpb.QueryStats) RegionCreateOption {
 // SetApproximateSize sets the approximate size for the region.
 func SetApproximateSize(v int64) RegionCreateOption {
 	return func(region *RegionInfo) {
-		region.approximateSize = v
+		region.approximateSize = MiBToKiB(v)
 	}
 }
 

@@ -79,9 +79,9 @@ func (m *OpInfluence) GetStoreInfluence(id uint64) *StoreInfluence {
 
 // StoreInfluence records influences that pending operators will make.
 type StoreInfluence struct {
-	RegionSize   int64
+	RegionSize   core.SizeKiB
 	RegionCount  int64
-	LeaderSize   int64
+	LeaderSize   core.SizeKiB
 	LeaderCount  int64
 	WitnessCount int64
 	StepCost     map[storelimit.Type]int64
@@ -106,7 +106,7 @@ func (s *StoreInfluence) ResourceProperty(kind constant.ScheduleKind) int64 {
 		case constant.ByCount:
 			return s.LeaderCount
 		case constant.BySize:
-			return s.LeaderSize
+			return int64(s.LeaderSize)
 		default:
 			return 0
 		}
@@ -115,7 +115,7 @@ func (s *StoreInfluence) ResourceProperty(kind constant.ScheduleKind) int64 {
 		case constant.ByCount:
 			return s.RegionCount
 		default:
-			return s.RegionSize
+			return int64(s.RegionSize)
 		}
 
 	case constant.WitnessKind:
@@ -142,8 +142,8 @@ func (s *StoreInfluence) AddStepCost(limitType storelimit.Type, cost int64) {
 }
 
 // AdjustStepCost adjusts the step cost of specific type store limit according to region size
-func (s *StoreInfluence) AdjustStepCost(limitType storelimit.Type, regionSize int64) {
-	if regionSize > storelimit.SmallRegionThreshold {
+func (s *StoreInfluence) AdjustStepCost(limitType storelimit.Type, regionSize core.SizeKiB) {
+	if int64(regionSize) > storelimit.SmallRegionThreshold {
 		s.AddStepCost(limitType, storelimit.RegionInfluence[limitType])
 	} else if regionSize > core.EmptyRegionApproximateSize {
 		s.AddStepCost(limitType, storelimit.SmallRegionInfluence[limitType])

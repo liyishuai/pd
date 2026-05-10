@@ -51,8 +51,8 @@ func TestInfluenceAmp(t *testing.T) {
 	kind := constant.NewScheduleKind(constant.RegionKind, constant.BySize)
 
 	influence := oc.GetOpInfluence(tc.GetBasicCluster())
-	influence.GetStoreInfluence(1).RegionSize = R
-	influence.GetStoreInfluence(2).RegionSize = -R
+	influence.GetStoreInfluence(1).RegionSize = core.MiBToKiB(R)
+	influence.GetStoreInfluence(2).RegionSize = core.MiBToKiB(-R)
 	tc.SetTolerantSizeRatio(1)
 
 	// It will schedule if the diff region count is greater than the sum

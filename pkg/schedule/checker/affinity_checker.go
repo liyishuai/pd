@@ -318,7 +318,7 @@ func (c *AffinityChecker) mergeCheck(region *core.RegionInfo, group *affinity.Gr
 		return nil
 	}
 
-	if region.GetApproximateSize()+target.GetApproximateSize() > maxSize ||
+	if region.GetApproximateSize()+target.GetApproximateSize() > core.MiBToKiB(maxSize) ||
 		region.GetApproximateKeys()+target.GetApproximateKeys() > maxKeys {
 		affinityMergeCheckerTargetTooBigCounter.Inc()
 		return nil

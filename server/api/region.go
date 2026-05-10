@@ -496,7 +496,7 @@ func (h *regionsHandler) GetSizeHistogram(w http.ResponseWriter, r *http.Request
 	regions := rc.GetRegions()
 	histSizes := make([]int64, 0, len(regions))
 	for _, region := range regions {
-		histSizes = append(histSizes, region.GetApproximateSize())
+		histSizes = append(histSizes, region.GetApproximateSize().ToMiB())
 	}
 	histItems := calHist(bound, &histSizes)
 	h.rd.JSON(w, http.StatusOK, histItems)

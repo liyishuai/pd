@@ -62,7 +62,7 @@ const (
 type regionTree struct {
 	tree *btree.BTreeG[*regionItem]
 	// Statistics
-	totalSize           int64
+	totalSize           SizeKiB
 	totalWriteBytesRate float64
 	totalWriteKeysRate  float64
 	// count the number of regions that not loaded from storage.
@@ -492,7 +492,7 @@ func (t *regionTree) TotalSize() int64 {
 	if t.length() == 0 {
 		return 0
 	}
-	return t.totalSize
+	return int64(t.totalSize)
 }
 
 // TotalWriteRate returns the total write bytes rate and the total write keys

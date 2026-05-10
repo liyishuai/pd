@@ -176,7 +176,7 @@ func InitRegion(r *core.RegionInfo, s *RegionInfo) *RegionInfo {
 	s.WrittenKeys = r.GetKeysWritten()
 	s.ReadBytes = r.GetBytesRead()
 	s.ReadKeys = r.GetKeysRead()
-	s.ApproximateSize = r.GetApproximateSize()
+	s.ApproximateSize = r.GetApproximateSize().ToMiB()
 	s.ApproximateKeys = r.GetApproximateKeys()
 	s.ApproximateKvSize = r.GetApproximateKvSize()
 	s.ApproximateColumnarKvSize = r.GetApproximateColumnarKvSize()

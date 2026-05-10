@@ -99,7 +99,7 @@ func (s *RegionStats) Observe(r *core.RegionInfo, cluster RegionStatInformer, op
 	if approximateSize <= core.EmptyRegionApproximateSize {
 		s.EmptyCount++
 	}
-	s.StorageSize += approximateSize
+	s.StorageSize += approximateSize.ToMiB()
 	s.UserStorageSize += approximateKvSize
 	s.UserColumnarStorageSize += approximateColumnarKvSize
 	s.StorageKeys += approximateKeys
@@ -115,7 +115,7 @@ func (s *RegionStats) Observe(r *core.RegionInfo, cluster RegionStatInformer, op
 	if leader != nil && checkFn(leader) {
 		storeID := leader.GetStoreId()
 		s.StoreLeaderCount[storeID]++
-		s.StoreLeaderSize[storeID] += approximateSize
+		s.StoreLeaderSize[storeID] += approximateSize.ToMiB()
 		s.StoreLeaderKeys[storeID] += approximateKeys
 		if cluster != nil {
 			{
@@ -138,7 +138,7 @@ func (s *RegionStats) Observe(r *core.RegionInfo, cluster RegionStatInformer, op
 		}
 		storeID := p.GetStoreId()
 		s.StorePeerCount[storeID]++
-		s.StorePeerSize[storeID] += r.GetStorePeerApproximateSize(storeID)
+		s.StorePeerSize[storeID] += r.GetStorePeerApproximateSize(storeID).ToMiB()
 		s.StorePeerKeys[storeID] += r.GetStorePeerApproximateKeys(storeID)
 		if cluster != nil {
 			// peer read statistics
