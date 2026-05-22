@@ -221,6 +221,9 @@ type tsoStream struct {
 	ongoingRequestCountGauge prometheus.Gauge
 	ongoingRequests          atomic.Int32
 }
+// Test hook for TSO stream setup race test.
+var TestHookPauseAfterTSORequestAttachedToStream func()
+
 
 const (
 	streamStateIdle int32 = iota
@@ -305,6 +308,11 @@ func (s *tsoStream) processRequests(
 	}
 	s.state.Store(prevState)
 
+	failpoint.Inject("pauseAfterTSORequestAttachedToStream", func() {
+		if TestHookPauseAfterTSORequestAttachedToStream != nil {
+			TestHookPauseAfterTSORequestAttachedToStream()
+		}
+	})
 	if err := s.stream.Send(clusterID, keyspaceID, keyspaceGroupID, count); err != nil {
 		// As the request is already put into `pendingRequests`, the request should finally be canceled by the recvLoop.
 		// So skip returning error here to avoid

@@ -78,6 +78,12 @@ type tsoServiceProvider interface {
 	getServiceDiscovery() sd.ServiceDiscovery
 	updateConnectionCtxs(ctx context.Context, connectionCtxs *sync.Map) bool
 }
+// Test hooks for TSO stream setup race test.
+var (
+	TestHookPauseBeforeBackgroundFirstUpdate           func()
+	TestHookPauseDispatcherBeforeUpdateConnectionCtxs  func()
+)
+
 
 const dispatcherCheckRPCConcurrencyInterval = time.Second * 5
 
@@ -298,6 +304,11 @@ tsoBatchLoop:
 			// Check stream and retry if necessary.
 			if stream == nil {
 				log.Info("[tso] tso stream is not ready")
+				failpoint.Inject("pauseDispatcherBeforeUpdateConnectionCtxsWhenNoStream", func() {
+					if TestHookPauseDispatcherBeforeUpdateConnectionCtxs != nil {
+						TestHookPauseDispatcherBeforeUpdateConnectionCtxs()
+					}
+				})
 				if provider.updateConnectionCtxs(ctx, connectionCtxs) {
 					continue streamChoosingLoop
 				}
@@ -477,6 +488,8 @@ func (td *tsoDispatcher) connectionCtxsUpdater() {
 	)
 
 	log.Info("[tso] start tso connection contexts updater")
+	ctx = context.WithValue(ctx, backgroundConnectionCtxsUpdaterKey{}, struct{}{})
+	firstUpdate := true
 	setNewUpdateTicker := func(interval time.Duration) {
 		if updateTicker.C != nil {
 			updateTicker.Stop()
@@ -495,6 +508,14 @@ func (td *tsoDispatcher) connectionCtxsUpdater() {
 	defer setNewUpdateTicker(0)
 
 	for {
+		if firstUpdate {
+			firstUpdate = false
+			failpoint.Inject("pauseBeforeBackgroundFirstUpdateConnectionCtxs", func() {
+				if TestHookPauseBeforeBackgroundFirstUpdate != nil {
+					TestHookPauseBeforeBackgroundFirstUpdate()
+				}
+			})
+		}
 		provider.updateConnectionCtxs(ctx, connectionCtxs)
 		select {
 		case <-ctx.Done():

@@ -31,7 +31,7 @@ import (
 	"github.com/pingcap/failpoint"
 
 	pd "github.com/tikv/pd/client"
-	"github.com/tikv/pd/client/clients/tso"
+	tsoclient "github.com/tikv/pd/client/clients/tso"
 	"github.com/tikv/pd/client/opt"
 	"github.com/tikv/pd/client/pkg/caller"
 	"github.com/tikv/pd/client/pkg/utils/testutil"
@@ -244,7 +244,7 @@ func (suite *tsoClientTestSuite) TestGetTSAsync() {
 		for _, client := range suite.clients {
 			go func(client pd.Client) {
 				defer wg.Done()
-				tsFutures := make([]tso.TSFuture, tsoRequestRound)
+				tsFutures := make([]tsoclient.TSFuture, tsoRequestRound)
 				for j := range tsFutures {
 					tsFutures[j] = client.GetTSAsync(suite.ctx)
 				}
@@ -615,4 +615,123 @@ func checkTSO(
 			}
 		}()
 	}
+}
+
+func (suite *tsoClientTestSuite) TestTSOStreamSetupRace() {
+	if !suite.legacy {
+		suite.T().Skip("race is in tryConnectToTSO, which is the non-proxy path")
+	}
+	re := suite.Require()
+
+	const tsoFailpointPrefix = "github.com/tikv/pd/client/clients/tso/"
+
+	backgroundUpdateStarted := make(chan struct{})
+	releaseBackgroundUpdate := make(chan struct{})
+	backgroundBeforeStore := make(chan struct{})
+	releaseBackgroundStore := make(chan struct{})
+	dispatcherSawNoStream := make(chan struct{})
+	releaseDispatcherUpdate := make(chan struct{})
+	requestAttachedToStream := make(chan struct{})
+	releaseRequest := make(chan struct{})
+
+	safeClose := func(ch chan struct{}) {
+		select {
+		case <-ch:
+		default:
+			close(ch)
+		}
+	}
+	defer func() {
+		safeClose(releaseBackgroundUpdate)
+		safeClose(releaseBackgroundStore)
+		safeClose(releaseDispatcherUpdate)
+		safeClose(releaseRequest)
+	}()
+
+	waitFor := func(ch <-chan struct{}, desc string) {
+		select {
+		case <-ch:
+		case <-time.After(30 * time.Second):
+			re.Failf("timed out", "timed out waiting for: %s", desc)
+		}
+	}
+
+	var backgroundUpdateOnce sync.Once
+	tsoclient.TestHookPauseBeforeBackgroundFirstUpdate = func() {
+		backgroundUpdateOnce.Do(func() {
+			close(backgroundUpdateStarted)
+			<-releaseBackgroundUpdate
+		})
+	}
+	defer func() {
+		tsoclient.TestHookPauseBeforeBackgroundFirstUpdate = nil
+		re.NoError(failpoint.Disable(tsoFailpointPrefix + "pauseBeforeBackgroundFirstUpdateConnectionCtxs"))
+	}()
+	re.NoError(failpoint.Enable(tsoFailpointPrefix+"pauseBeforeBackgroundFirstUpdateConnectionCtxs", "return(true)"))
+
+	var beforeStoreOnce sync.Once
+	tsoclient.TestHookPauseBeforeBackgroundStoreTSOLeaderStream = func() {
+		beforeStoreOnce.Do(func() {
+			close(backgroundBeforeStore)
+			<-releaseBackgroundStore
+		})
+	}
+	defer func() {
+		tsoclient.TestHookPauseBeforeBackgroundStoreTSOLeaderStream = nil
+		re.NoError(failpoint.Disable(tsoFailpointPrefix + "pauseBeforeBackgroundStoreTSOLeaderStream"))
+	}()
+	re.NoError(failpoint.Enable(tsoFailpointPrefix+"pauseBeforeBackgroundStoreTSOLeaderStream", "return(true)"))
+
+	var dispatcherOnce sync.Once
+	tsoclient.TestHookPauseDispatcherBeforeUpdateConnectionCtxs = func() {
+		dispatcherOnce.Do(func() {
+			close(dispatcherSawNoStream)
+			<-releaseDispatcherUpdate
+		})
+	}
+	defer func() {
+		tsoclient.TestHookPauseDispatcherBeforeUpdateConnectionCtxs = nil
+		re.NoError(failpoint.Disable(tsoFailpointPrefix + "pauseDispatcherBeforeUpdateConnectionCtxsWhenNoStream"))
+	}()
+	re.NoError(failpoint.Enable(tsoFailpointPrefix+"pauseDispatcherBeforeUpdateConnectionCtxsWhenNoStream", "return(true)"))
+
+	var requestAttachedOnce sync.Once
+	tsoclient.TestHookPauseAfterTSORequestAttachedToStream = func() {
+		requestAttachedOnce.Do(func() {
+			close(requestAttachedToStream)
+			<-releaseRequest
+		})
+	}
+	defer func() {
+		tsoclient.TestHookPauseAfterTSORequestAttachedToStream = nil
+		re.NoError(failpoint.Disable(tsoFailpointPrefix + "pauseAfterTSORequestAttachedToStream"))
+	}()
+	re.NoError(failpoint.Enable(tsoFailpointPrefix+"pauseAfterTSORequestAttachedToStream", "return(true)"))
+
+	ctx, cancel := context.WithCancel(suite.ctx)
+	defer cancel()
+	pdClient, err := pd.NewClientWithContext(ctx,
+		caller.TestComponent,
+		suite.getBackendEndpoints(), pd.SecurityOption{})
+	re.NoError(err)
+	defer pdClient.Close()
+
+	var getErr error
+	done := make(chan struct{})
+	go func() {
+		_, _, getErr = pdClient.GetTS(context.Background())
+		close(done)
+	}()
+
+	waitFor(backgroundUpdateStarted, "background updater first tick")
+	close(releaseBackgroundUpdate)
+	waitFor(backgroundBeforeStore, "background goroutine reaching updateAndClear")
+	waitFor(dispatcherSawNoStream, "dispatcher seeing no stream")
+	close(releaseDispatcherUpdate)
+	waitFor(requestAttachedToStream, "request attached to dispatcher's stream")
+	close(releaseBackgroundStore)
+	close(releaseRequest)
+
+	waitFor(done, "GetTS to complete")
+	re.NoError(getErr)
 }

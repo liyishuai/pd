@@ -48,6 +48,11 @@ const (
 	dispatchRetryCount     = 2
 )
 
+type backgroundConnectionCtxsUpdaterKey struct{}
+
+// Test hook for TSO stream setup race test.
+var TestHookPauseBeforeBackgroundStoreTSOLeaderStream func()
+
 // Client defines the interface of a TSO client.
 type Client interface {
 	// GetTS gets a timestamp from PD or TSO microservice.
@@ -305,6 +310,13 @@ func (c *Cli) tryConnectToTSO(
 				err = status.New(codes.Unavailable, "unavailable").Err()
 			})
 			if stream != nil && err == nil {
+				if _, ok := ctx.Value(backgroundConnectionCtxsUpdaterKey{}).(struct{}); ok {
+					failpoint.Inject("pauseBeforeBackgroundStoreTSOLeaderStream", func() {
+						if TestHookPauseBeforeBackgroundStoreTSOLeaderStream != nil {
+							TestHookPauseBeforeBackgroundStoreTSOLeaderStream()
+						}
+					})
+				}
 				updateAndClear(url, &tsoConnectionContext{cctx, cancel, url, stream})
 				return nil
 			}
